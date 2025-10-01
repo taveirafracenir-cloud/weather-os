@@ -3,19 +3,25 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import time
 import os
+import requests
 
 # --- CONFIGURAÇÕES ---
+API_KEY = "SUA_CHAVE_OPENWEATHER"  # Troque pela sua chave
+CIDADE = "São Paulo,BR"
+URL_WEATHER = f"http://api.openweathermap.org/data/2.5/weather?q={CIDADE}&appid={API_KEY}&units=metric"
+
 LIMITE_CPU = 80
 LIMITE_MEM = 80
 LIMITE_DISCO = 90
-INTERVALO_ATUALIZACAO = 5       # segundos para atualizar status.xml
-INTERVALO_LOG = 60             # segundos para criar log histórico
+INTERVALO_ATUALIZACAO = 5       # Atualiza status.xml a cada 5s
+INTERVALO_LOG = 60             # Cria log histórico a cada 60s
 PASTA_LOGS = "logs_xml"        # pasta para logs históricos
 
 # Cria pasta de logs se não existir
 if not os.path.exists(PASTA_LOGS):
     os.makedirs(PASTA_LOGS)
 
+# --- FUNÇÕES ---
 def coletar_status():
     """Coleta status do servidor"""
     status = {
@@ -44,8 +50,22 @@ def coletar_status():
 
     return status
 
-def criar_xml(status, arquivo):
-    """Cria arquivo XML com status e alertas"""
+def pegar_previsao_tempo():
+    """Obtém previsão do tempo da API"""
+    try:
+        resposta = requests.get(URL_WEATHER)
+        dados = resposta.json()
+        tempo = {
+            "temperatura": dados['main']['temp'],
+            "umidade": dados['main']['humidity'],
+            "condicao": dados['weather'][0]['description'].title()
+        }
+        return tempo
+    except:
+        return {"temperatura": "Erro", "umidade": "Erro", "condicao": "Erro"}
+
+def criar_xml(status, tempo, arquivo):
+    """Cria XML com status do servidor, alertas e previsão do tempo"""
     root = ET.Element("server_monitor")
     
     # CPU
@@ -85,6 +105,12 @@ def criar_xml(status, arquivo):
     if status["disk_percent"] > LIMITE_DISCO:
         ET.SubElement(alerts, "alert").text = f"Disco cheio: {status['disk_percent']}%"
     
+    # Previsão do tempo
+    weather = ET.SubElement(root, "weather")
+    ET.SubElement(weather, "temperatura").text = str(tempo["temperatura"])
+    ET.SubElement(weather, "umidade").text = str(tempo["umidade"])
+    ET.SubElement(weather, "condicao").text = str(tempo["condicao"])
+    
     tree = ET.ElementTree(root)
     tree.write(arquivo, encoding="utf-8", xml_declaration=True)
 
@@ -94,17 +120,18 @@ ultimo_log = time.time()
 try:
     while True:
         status_atual = coletar_status()
+        tempo_atual = pegar_previsao_tempo()
         
         # Atualiza XML principal
-        criar_xml(status_atual, "status.xml")
+        criar_xml(status_atual, tempo_atual, "status.xml")
         print(f"[{datetime.now().strftime('%H:%M:%S')}] status.xml atualizado!")
 
-        # Verifica se é hora de criar log histórico
+        # Cria log histórico se passou o intervalo
         agora = time.time()
         if agora - ultimo_log >= INTERVALO_LOG:
             nome_log = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xml"
             caminho_log = os.path.join(PASTA_LOGS, nome_log)
-            criar_xml(status_atual, caminho_log)
+            criar_xml(status_atual, tempo_atual, caminho_log)
             print(f"[{datetime.now().strftime('%H:%M:%S')}] Log histórico criado: {nome_log}")
             ultimo_log = agora
 
