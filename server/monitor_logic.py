@@ -2,14 +2,22 @@ import psutil
 import xml.etree.ElementTree as ET
 from datetime import datetime
 import time
+import os
 
-# Limites para alertas
+# --- CONFIGURAÇÕES ---
 LIMITE_CPU = 80
 LIMITE_MEM = 80
 LIMITE_DISCO = 90
+INTERVALO_ATUALIZACAO = 5       # segundos para atualizar status.xml
+INTERVALO_LOG = 60             # segundos para criar log histórico
+PASTA_LOGS = "logs_xml"        # pasta para logs históricos
 
-def gerar_status_xml(arquivo="status.xml"):
-    # Coleta status do servidor
+# Cria pasta de logs se não existir
+if not os.path.exists(PASTA_LOGS):
+    os.makedirs(PASTA_LOGS)
+
+def coletar_status():
+    """Coleta status do servidor"""
     status = {
         "cpu": psutil.cpu_percent(interval=1),
         "memory_percent": psutil.virtual_memory().percent,
@@ -22,7 +30,6 @@ def gerar_status_xml(arquivo="status.xml"):
         "network_recv": round(psutil.net_io_counters().bytes_recv / (1024*1024), 2)
     }
 
-    # Bateria (se disponível)
     try:
         bateria = psutil.sensors_battery()
         if bateria:
@@ -35,7 +42,10 @@ def gerar_status_xml(arquivo="status.xml"):
         status["battery_percent"] = "Erro"
         status["battery_plugged"] = "Erro"
 
-    # Criar XML
+    return status
+
+def criar_xml(status, arquivo):
+    """Cria arquivo XML com status e alertas"""
     root = ET.Element("server_monitor")
     
     # CPU
@@ -78,11 +88,27 @@ def gerar_status_xml(arquivo="status.xml"):
     tree = ET.ElementTree(root)
     tree.write(arquivo, encoding="utf-8", xml_declaration=True)
 
-# Loop principal para atualizar XML a cada 5 segundos
+# --- LOOP PRINCIPAL ---
+ultimo_log = time.time()
+
 try:
     while True:
-        gerar_status_xml("status.xml")
-        print("Arquivo status.xml atualizado com alertas!")
-        time.sleep(5)
+        status_atual = coletar_status()
+        
+        # Atualiza XML principal
+        criar_xml(status_atual, "status.xml")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] status.xml atualizado!")
+
+        # Verifica se é hora de criar log histórico
+        agora = time.time()
+        if agora - ultimo_log >= INTERVALO_LOG:
+            nome_log = f"log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xml"
+            caminho_log = os.path.join(PASTA_LOGS, nome_log)
+            criar_xml(status_atual, caminho_log)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Log histórico criado: {nome_log}")
+            ultimo_log = agora
+
+        time.sleep(INTERVALO_ATUALIZACAO)
+
 except KeyboardInterrupt:
     print("Monitoramento encerrado pelo usuário.")
