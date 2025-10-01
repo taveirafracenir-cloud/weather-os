@@ -1,0 +1,41 @@
+<server_monitor>
+    <cpu>
+        <usage_percent>35</usage_percent>
+    </cpu>
+    <memory>
+        <usage_percent>60</usage_percent>
+        <total_gb>16</total_gb>
+        <available_gb>6.4</available_gb>
+    </memory>
+    <disk>
+        <usage_percent>70</usage_percent>
+        <total_gb>512</total_gb>
+        <free_gb>153.6</free_gb>
+    </disk>
+    <network>
+        <sent_mb>12.5</sent_mb>
+        <received_mb>10.2</received_mb>
+    </network>
+    <battery>
+        <percent>90</percent>
+        <plugged>true</plugged>
+    </battery>
+    <timestamp>2025-10-01T14:00:00</timestamp>
+    <alerts>
+        <alert>CPU alta: 85%</alert>
+    </alerts>
+    <weather_current>
+        <temperatura>25</temperatura>
+        <umidade>70</umidade>
+        <condicao>Ensolarado</condicao>
+    </weather_current>
+    <forecast>
+        <date>2025-10-02</date>
+        <condition>Parcialmente Nublado</condition>
+        <temp_min>20</temp_min>
+        <temp_max>28</temp_max>
+        <alerts>
+            <alert>Possível tempestade à tarde</alert>
+        </alerts>
+    </forecast>
+</server_monitor>
