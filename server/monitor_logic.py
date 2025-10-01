@@ -3,7 +3,13 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import time
 
+# Limites para alertas
+LIMITE_CPU = 80
+LIMITE_MEM = 80
+LIMITE_DISCO = 90
+
 def gerar_status_xml(arquivo="status.xml"):
+    # Coleta status do servidor
     status = {
         "cpu": psutil.cpu_percent(interval=1),
         "memory_percent": psutil.virtual_memory().percent,
@@ -31,27 +37,43 @@ def gerar_status_xml(arquivo="status.xml"):
 
     # Criar XML
     root = ET.Element("server_monitor")
+    
+    # CPU
     ET.SubElement(ET.SubElement(root, "cpu"), "usage_percent").text = str(status["cpu"])
     
+    # Memória
     mem = ET.SubElement(root, "memory")
     ET.SubElement(mem, "usage_percent").text = str(status["memory_percent"])
     ET.SubElement(mem, "total_gb").text = str(status["memory_total"])
     ET.SubElement(mem, "available_gb").text = str(status["memory_available"])
     
+    # Disco
     disk = ET.SubElement(root, "disk")
     ET.SubElement(disk, "usage_percent").text = str(status["disk_percent"])
     ET.SubElement(disk, "total_gb").text = str(status["disk_total"])
     ET.SubElement(disk, "free_gb").text = str(status["disk_free"])
     
+    # Rede
     net = ET.SubElement(root, "network")
     ET.SubElement(net, "sent_mb").text = str(status["network_sent"])
     ET.SubElement(net, "received_mb").text = str(status["network_recv"])
     
+    # Bateria
     bat = ET.SubElement(root, "battery")
     ET.SubElement(bat, "percent").text = str(status["battery_percent"])
     ET.SubElement(bat, "plugged").text = str(status["battery_plugged"])
     
+    # Timestamp
     ET.SubElement(root, "timestamp").text = datetime.now().isoformat()
+    
+    # Alertas
+    alerts = ET.SubElement(root, "alerts")
+    if status["cpu"] > LIMITE_CPU:
+        ET.SubElement(alerts, "alert").text = f"CPU alta: {status['cpu']}%"
+    if status["memory_percent"] > LIMITE_MEM:
+        ET.SubElement(alerts, "alert").text = f"Memória alta: {status['memory_percent']}%"
+    if status["disk_percent"] > LIMITE_DISCO:
+        ET.SubElement(alerts, "alert").text = f"Disco cheio: {status['disk_percent']}%"
     
     tree = ET.ElementTree(root)
     tree.write(arquivo, encoding="utf-8", xml_declaration=True)
@@ -60,7 +82,7 @@ def gerar_status_xml(arquivo="status.xml"):
 try:
     while True:
         gerar_status_xml("status.xml")
-        print("Arquivo status.xml atualizado!")
+        print("Arquivo status.xml atualizado com alertas!")
         time.sleep(5)
 except KeyboardInterrupt:
     print("Monitoramento encerrado pelo usuário.")
